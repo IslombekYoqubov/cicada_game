@@ -1,0 +1,18 @@
+# Python kesh fayllari
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual muhit (Virtual Environments)
+venv/
+.venv/
+env/
+ENV/
+
+# Maxfiy ma'lumotlar (Tokenlar, parollar)
+.env
+*.env
+
+# IDE sozlamalari
+.vscode/
+.idea/
