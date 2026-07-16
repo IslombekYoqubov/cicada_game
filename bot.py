@@ -93,7 +93,7 @@ async def game_router(message: types.Message):
             # Telegram postidagi video havolasi
             puzzle_video_url = "https://t.me/demo11212/3" 
             
-            await message.reply("🎉 **Tabriklaymiz, keyingi bosqichga o'tdingiz! 🔓**")
+            await message.reply("🎉 Tabriklaymiz, keyingi bosqichga o'tdingiz! 🔓")
             
             # send_photo emas, send_video qildik, chunki bu video kvest!
             try:
@@ -115,7 +115,7 @@ async def game_router(message: types.Message):
                     "Ushbu video qaysi filmdan parcha ekanligini toping va kino nomini botga yuboring!"
                 )
         else:
-            await message.reply("❌ Xato! Ovozli xabardagi kod noto'g'ri. Diqqat bilan eshitib ko'ring.")
+            await message.reply("❌ Xato! Video xabardagi kod noto'g'ri. Diqqat bilan eshitib ko'ring.")
 
     # --- 2-BOSQICH: RASMDAGI KOD TEKSHIRUVI ---
     elif current_stage == "STAGE_2":
