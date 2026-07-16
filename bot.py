@@ -67,9 +67,9 @@ async def process_callback_check(callback_query: types.CallbackQuery):
 # 1-Bosqich boshlanishi
 async def send_first_puzzle(chat_id):
     puzzle_text = (
-        "📟 **1-BOSQICH: TOVUSH SHIFRI**\n\n"
+        "📟 1-BOSQICH: TOVUSH SHIFRI\n\n"
         "Kanaldagi (`@cicada_vibe`) ovozli xabar (audio) ortiga yashiringan maxfiy kodni toping va botga yuboring!\n\n"
-        "💡 *Yordam:* Kalit so'zni katta harflarda kiriting."
+        "💡 Yordam: Kalit so'zni katta harflarda kiriting."
     )
     await bot.send_message(chat_id, puzzle_text, parse_mode="Markdown")
 
@@ -101,9 +101,9 @@ async def game_router(message: types.Message):
                     chat_id=user_id,
                     video=puzzle_video_url,
                     caption=(
-                        "📟 **2-BOSQICH: VIDEO ORTIDAGI JUMBOQ**\n\n"
+                        "📟 2-BOSQICH: VIDEO ORTIDAGI JUMBOQ\n\n"
                         "Ushbu video qaysi filmdan parcha ekanligini toping va kino nomini botga yuboring!\n\n"
-                        "💡 *Yordam:* Diqqat bilan elementlarga qarang."
+                        "💡 Yordam: Diqqat bilan elementlarga qarang."
                     )
                 )
             except Exception as e:
@@ -129,7 +129,7 @@ async def game_router(message: types.Message):
             keyboard.add(btn_website)
             
             await message.reply(
-                "🎉 **AJOYIB! Siz videodagi kodni ham to'g'ri topdingiz.**\n\n"
+                "🎉 AJOYIB! Siz videodagi kodni ham to'g'ri topdingiz.\n\n"
                 "Siz kvestning so'nggi va hal qiluvchi bosqichiga yetib keldingiz. "
                 "Quyidagi tugma orqali maxfiy saytga o'ting va topshiriqni yakunlang:",
                 reply_markup=keyboard
