@@ -110,9 +110,7 @@ async def game_router(message: types.Message):
                 # Agar video yuborishda havola xato bo'lsa, ogohlantirish va oddiy xabar yuborish
                 logging.error(f"Video yuborishda xato: {e}")
                 await message.answer(
-                    "Videoni yuklashda xatolik yuz berdi. Mana havola:\n"
-                    f"{puzzle_video_url}\n\n"
-                    "Ushbu video qaysi filmdan parcha ekanligini toping va kino nomini botga yuboring!"
+                    f"{"https://www.youtube.com/shorts/Aj51buU3j-k"}"
                 )
         else:
             await message.reply("❌ Xato! Video xabardagi kod noto'g'ri. Diqqat bilan eshitib ko'ring.")
