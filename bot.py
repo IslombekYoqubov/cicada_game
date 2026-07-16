@@ -1,4 +1,3 @@
-
 import os
 import logging
 import asyncio
@@ -9,7 +8,7 @@ from aiohttp import web
 API_TOKEN = '8603411482:AAEbRMH1TjeykbSn_F2UAsb4mt5qMHeCknY'
 CHANNEL_ID = '@cicada_vibe'
 
-# 🌐 Tashqi saytingiz havolasi (shuni o'zingiznikiga almashtirasiz)
+# 🌐 Tashqi saytingiz havolasi
 WEBSITE_URL = 'https://youtube.com/miyagi' 
 
 logging.basicConfig(level=logging.INFO)
@@ -28,13 +27,17 @@ async def check_subscription(user_id):
         logging.error(f"A'zolikni tekshirishda xato: {e}")
         return False
 
+# /start buyrug'i kelganda foydalanuvchini har doim 0 dan boshlatamiz
 @dp.message_handler(commands=['start'])
 async def start_cmd(message: types.Message):
     user_id = message.from_user.id
+    
+    # 🚨 MUHIM: Har doim start bosilganda bosqichni nollaymiz!
+    user_stages[user_id] = "STAGE_1"
+    
     is_sub = await check_subscription(user_id)
     
     if is_sub:
-        user_stages[user_id] = "STAGE_1"
         await send_first_puzzle(message.chat.id)
     else:
         keyboard = InlineKeyboardMarkup(row_width=1)
@@ -54,11 +57,12 @@ async def process_callback_check(callback_query: types.CallbackQuery):
     is_sub = await check_subscription(user_id)
     
     if is_sub:
+        # 🚨 A'zolik tekshirilganda ham bosqich boshidan boshlanadi
         user_stages[user_id] = "STAGE_1"
         await bot.delete_message(chat_id=user_id, message_id=callback_query.message.message_id)
         await send_first_puzzle(user_id)
     else:
-        await bot.answer_callback_query(callback_query.id, "Siz hali kanalga a'zo bo'lmandiingiz! ❌", show_alert=True)
+        await bot.answer_callback_query(callback_query.id, "Siz hali kanalga a'zo bo'lmadingiz! ❌", show_alert=True)
 
 # 1-Bosqich boshlanishi
 async def send_first_puzzle(chat_id):
@@ -75,33 +79,47 @@ async def game_router(message: types.Message):
     user_id = message.from_user.id
     user_answer = message.text.strip().upper()
     
-    # Agar foydalanuvchi bosqichi aniqlanmagan bo'lsa, 1-bosqich qilib belgilaymiz
-    current_stage = user_stages.get(user_id, "STAGE_1")
+    # Agar foydalanuvchi bazada hali yo'q bo'lsa, avtomatik 1-bosqichga o'rnatiladi
+    if user_id not in user_stages:
+        user_stages[user_id] = "STAGE_1"
+        
+    current_stage = user_stages[user_id]
     
     # --- 1-BOSQICH: OVOZLI XABAR TEKSHIRUVI ---
     if current_stage == "STAGE_1":
         if user_answer == "NULL":
             user_stages[user_id] = "STAGE_2" # 2-bosqichga o'tkazamiz
             
-            # Bu yerga o'zingiz tayyorlagan jumboqli rasm havolasini yoki Telegram File ID'sini qo'ying
-            puzzle_image_url = "https://t.me/demo11212/3" 
+            # Telegram postidagi video havolasi
+            puzzle_video_url = "https://t.me/demo11212/3" 
             
             await message.reply("🎉 **Tabriklaymiz, keyingi bosqichga o'tdingiz! 🔓**")
-            await bot.send_photo(
-                chat_id=user_id,
-                photo=puzzle_image_url,
-                caption=(
-                    "📟 **2-BOSQICH: VIDEO ORTIDAGI JUMBOQ**\n\n"
-                    "Ushbu video qaysi filmdan parcha ekanligini toping va kino nomini botga yuboring!\n"
-                    "💡 *Yordam:* Diqqat bilan elementlarga qarang."
+            
+            # send_photo emas, send_video qildik, chunki bu video kvest!
+            try:
+                await bot.send_video(
+                    chat_id=user_id,
+                    video=puzzle_video_url,
+                    caption=(
+                        "📟 **2-BOSQICH: VIDEO ORTIDAGI JUMBOQ**\n\n"
+                        "Ushbu video qaysi filmdan parcha ekanligini toping va kino nomini botga yuboring!\n\n"
+                        "💡 *Yordam:* Diqqat bilan elementlarga qarang."
+                    )
                 )
-            )
+            except Exception as e:
+                # Agar video yuborishda havola xato bo'lsa, ogohlantirish va oddiy xabar yuborish
+                logging.error(f"Video yuborishda xato: {e}")
+                await message.answer(
+                    "Videoni yuklashda xatolik yuz berdi. Mana havola:\n"
+                    f"{puzzle_video_url}\n\n"
+                    "Ushbu video qaysi filmdan parcha ekanligini toping va kino nomini botga yuboring!"
+                )
         else:
             await message.reply("❌ Xato! Ovozli xabardagi kod noto'g'ri. Diqqat bilan eshitib ko'ring.")
 
     # --- 2-BOSQICH: RASMDAGI KOD TEKSHIRUVI ---
     elif current_stage == "STAGE_2":
-        # Video ichidagi kod (Masalan: INCEPTION)
+        # Video ichidagi film nomi (Masalan: INCEPTION)
         if user_answer == "INCEPTION":
             user_stages[user_id] = "COMPLETED"
             
@@ -111,13 +129,13 @@ async def game_router(message: types.Message):
             keyboard.add(btn_website)
             
             await message.reply(
-                "🎉 **AJOYIB! Siz video dagi kodni ham to'g'ri topdingiz.**\n\n"
+                "🎉 **AJOYIB! Siz videodagi kodni ham to'g'ri topdingiz.**\n\n"
                 "Siz kvestning so'nggi va hal qiluvchi bosqichiga yetib keldingiz. "
                 "Quyidagi tugma orqali maxfiy saytga o'ting va topshiriqni yakunlang:",
                 reply_markup=keyboard
             )
         else:
-            await message.reply("❌ Video dagi kod noto'g'ri. Yaxshilab tekshirib, qayta urinib ko'ring.")
+            await message.reply("❌ Videodagi kod noto'g'ri. Yaxshilab tekshirib, qayta urinib ko'ring.")
 
 # Dummy veb-server (Render uchun)
 async def handle(request):
