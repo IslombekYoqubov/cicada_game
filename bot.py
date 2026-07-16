@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiohttp import web
 
-API_TOKEN = '8603411482:AAEbrMH1Tjeykbsn_F2UAsb4mt5qMHeckNy'
+API_TOKEN = '8603411482:AAEbRMH1TjeykbSn_F2UAsb4mt5qMHeCknY'
 CHANNEL_ID = '@cicada_vibe'
 
 logging.basicConfig(level=logging.INFO)
