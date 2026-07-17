@@ -1,22 +1,52 @@
 import os
+import aiosqlite
 import logging
 import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiohttp import web
 
 API_TOKEN = '8603411482:AAGGH9GL-OlZ2awx7aN-A7hPBTiIwwNx9Bs'
 CHANNEL_ID = '@cicada_vibe'
-
-# 🌐 Tashqi saytingiz havolasi
 WEBSITE_URL = 'https://final-level.netlify.app'
+DB_FILE = 'quest_bot.db'
 
 logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# Foydalanuvchilar qaysi bosqichdaligini eslab qolish uchun kesh
-user_stages = {}
+# ================= ASINXRON DATABASE BILAN ISHLASH =================
+async def init_db():
+    async with aiosqlite.connect(DB_FILE) as db:
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY,
+                stage TEXT DEFAULT 'STAGE_1'
+            )
+        ''')
+        await db.commit()
+
+async def get_user_stage(user_id):
+    async with aiosqlite.connect(DB_FILE) as db:
+        async with db.execute('SELECT stage FROM users WHERE user_id = ?', (user_id,)) as cursor:
+            result = await cursor.fetchone()
+            if result:
+                return result[0]
+            else:
+                await db.execute('INSERT INTO users (user_id, stage) VALUES (?, ?)', (user_id, "STAGE_1"))
+                await db.commit()
+                return "STAGE_1"
+
+async def set_user_stage(user_id, stage):
+    async with aiosqlite.connect(DB_FILE) as db:
+        await db.execute('''
+            INSERT INTO users (user_id, stage) 
+            VALUES (?, ?) 
+            ON CONFLICT(user_id) DO UPDATE SET stage = excluded.stage
+        ''', (user_id, stage))
+        await db.commit()
+# ===================================================================
 
 async def check_subscription(user_id):
     try:
@@ -26,14 +56,10 @@ async def check_subscription(user_id):
         logging.error(f"A'zolikni tekshirishda xato: {e}")
         return False
 
-# /start buyrug'i kelganda foydalanuvchini har doim 0 dan boshlatamiz
 @dp.message_handler(commands=['start'])
 async def start_cmd(message: types.Message):
     user_id = message.from_user.id
-
-    # 🚨 MUHIM: Har doim start bosilganda bosqichni nollaymiz!
-    user_stages[user_id] = "STAGE_1"
-
+    await set_user_stage(user_id, "STAGE_1")
     is_sub = await check_subscription(user_id)
 
     if is_sub:
@@ -46,7 +72,7 @@ async def start_cmd(message: types.Message):
 
         await message.answer(
             "Xush kelibsiz! Tizimga kirish tasdiqlandi. 🔓\n\n"
-            "Biroq, keyingi bosqich signalini qabul qilish uchun avval rasmiy kanalimizga a'zo bo'lishingiz kerak:",
+            "Keyingi bosqich signalini qabul qilish uchun avval rasmiy kanalimizga a'zo bo'lishingiz kerak:",
             reply_markup=keyboard
         )
 
@@ -56,80 +82,87 @@ async def process_callback_check(callback_query: types.CallbackQuery):
     is_sub = await check_subscription(user_id)
 
     if is_sub:
-        # 🚨 A'zolik tekshirilganda ham bosqich boshidan boshlanadi
-        user_stages[user_id] = "STAGE_1"
-        await bot.delete_message(chat_id=user_id, message_id=callback_query.message.message_id)
+        await set_user_stage(user_id, "STAGE_1")
+        try:
+            await bot.delete_message(chat_id=user_id, message_id=callback_query.message.message_id)
+        except Exception:
+            pass
         await send_first_puzzle(user_id)
     else:
         await bot.answer_callback_query(callback_query.id, "Siz hali kanalga a'zo bo'lmadingiz! ❌", show_alert=True)
 
-# 1-Bosqich boshlanishi
 async def send_first_puzzle(chat_id):
     puzzle_text = (
-        "📟 1-BOSQICH: TOVUSH SHIFRI\n\n"
+        "📟 **1-BOSQICH: TOVUSH SHIFRI**\n\n"
         "Kanaldagi (`@cicada_vibe`) ovozli xabar (audio) ortiga yashiringan maxfiy kodni toping va botga yuboring!\n\n"
-        "💡 Yordam: Kalit so'zni katta harflarda kiriting."
+        "💡 **Yordam:** Kalit so'zni KATTA harflarda kiriting."
     )
     await bot.send_message(chat_id, puzzle_text, parse_mode="Markdown")
 
-# Xabarlarni qabul qilish va bosqichlarni tekshirish
 @dp.message_handler()
 async def game_router(message: types.Message):
     user_id = message.from_user.id
     user_answer = message.text.strip().upper()
+    current_stage = await get_user_stage(user_id)
 
-    # Agar foydalanuvchi bazada hali yo'q bo'lsa, avtomatik 1-bosqichga o'rnatiladi
-    if user_id not in user_stages:
-        user_stages[user_id] = "STAGE_1"
-
-    current_stage = user_stages[user_id]
-
-    # --- 1-BOSQICH: OVOZLI XABAR TEKSHIRUVI ---
     if current_stage == "STAGE_1":
         if user_answer == "NULL":
-            user_stages[user_id] = "STAGE_2" # 2-bosqichga o'tkazamiz
-
-            # Telegram postidagi video havolasi
+            await set_user_stage(user_id, "STAGE_2")
             puzzle_video_url = "https://t.me/demo11212/4"
-
             await message.reply("🎉 Tabriklaymiz, keyingi bosqichga o'tdingiz! 🔓")
-
             try:
                 await bot.send_video(
-                    chat_id=user_id,
-                    video=puzzle_video_url,
-                    caption=(
-                        "📟 2-BOSQICH: VIDEO ORTIDAGI JUMBOQ\n\n"
-                        "Ushbu video qaysi filmdan parcha ekanligini toping va kino nomini botga yuboring!\n\n"
-                        "💡 Yordam: Diqqat bilan elementlarga qarang."
-                    )
+                    chat_id=user_id, video=puzzle_video_url,
+                    caption="📟 **2-BOSQICH: VIDEO ORTIDAGI JUMBOQ**\n\nUshbu video qaysi filmdan parcha ekanligini toping va kino nomini botga yuboring!\n\n💡 **Yordam:** Diqqat bilan kadrdagi va ovozdagi elementlarga qarang.",
+                    parse_mode="Markdown"
                 )
             except Exception as e:
                 logging.error(f"Video yuborishda xato: {e}")
-                await message.answer("https://t.me/demo11212/4")
+                await message.answer(f"📟 **2-BOSQICH: VIDEO ORTIDAGI JUMBOQ**\n\nVideo yuklanmadi, uni ushbu havola orqali ko'ring:\n{puzzle_video_url}\n\nKino nomini botga yuboring.")
         else:
-            await message.reply("❌ Xato! Video xabardagi kod noto'g'ri. Diqqat bilan eshitib ko'ring.")
+            await message.reply("❌ Xato! Ovozli xabardagi kod noto'g'ri. Diqqat bilan eshitib ko'ring.")
 
-    # --- 2-BOSQICH: RASMDAGI KOD TEKSHIRUVI ---
     elif current_stage == "STAGE_2":
-        if user_answer == "INCEPTION":
-            user_stages[user_id] = "COMPLETED"
-
+        valid_answers = ["INCEPTION", "MUQADDIMA", "НАЧАЛО"]
+        if user_answer in valid_answers:
+            await set_user_stage(user_id, "COMPLETED")
             keyboard = InlineKeyboardMarkup()
             btn_website = InlineKeyboardButton(text="🌐 Yakuniy topshiriqqa o'tish", url=WEBSITE_URL)
             keyboard.add(btn_website)
-
             await message.reply(
-                "🎉 AJOYIB! Siz videodagi kodni ham to'g'ri topdingiz.\n\n"
-                "Siz kvestning so'nggi va hal qiluvchi bosqichiga yetib keldingiz. "
-                "Quyidagi tugma orqali maxfiy saytga o'ting va topshiriqni yakunlang:",
-                reply_markup=keyboard
+                "🎉 **AJOYIB!** Siz videodagi javobni to'g'ri topdingiz.\n\nSiz kvestning so'nggi va hal qiluvchi bosqichiga yetib keldingiz. Quyidagi tugma orqali maxfiy saytga o'ting va topshiriqni yakunlang:",
+                reply_markup=keyboard, parse_mode="Markdown"
             )
         else:
-            await message.reply("❌ Videodagi kod noto'g'ri. Yaxshilab tekshirib, qayta urinib ko'ring.")
+            await message.reply("❌ Film nomi noto'g'ri. Yaxshilab tekshirib, qayta urinib ko'ring.")
+            
+    elif current_stage == "COMPLETED":
+        keyboard = InlineKeyboardMarkup()
+        btn_website = InlineKeyboardButton(text="🌐 Saytga o'tish", url=WEBSITE_URL)
+        keyboard.add(btn_website)
+        await message.reply("Siz kvestni muvaffaqiyatli yakunlagansiz! 🏆\nYakuniy topshiriq saytda joylashgan:", reply_markup=keyboard)
 
+# ================= RENDER UXLAMASLIGI UCHUN WEB SERVER =================
+async def handle_ping(request):
+    return web.Response(text="Miya yoniq, tizim onlayn!")
 
 async def main():
+    await init_db()
+    
+    # Kichik dummy web server yaratamiz, bu Render'ga ochiq port beradi
+    app = web.Application()
+    app.router.add_get('/', handle_ping)
+    
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    # Render avtomat PORT o'zgaruvchisini beradi, bo'lmasa 8080 da yonadi
+    port = int(os.environ.get("PORT", 8080))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    logging.info(f"Web server {port}-portda ishga tushdi.")
+
+    # Botni polling rejimida fonda parallel yurgizamiz
     try:
         await dp.start_polling()
     finally:
