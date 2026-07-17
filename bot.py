@@ -12,7 +12,7 @@ WEBSITE_URL = 'https://final-level.netlify.app'
 
 logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token=API_TOKEN, proxy="http://proxy.server:3128")
+bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
 # Foydalanuvchilar qaysi bosqichdaligini eslab qolish uchun kesh
