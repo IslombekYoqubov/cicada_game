@@ -1,7 +1,7 @@
 from aiogram import Bot, Dispatcher, types
 import analytics
 
-ADMIN_ID = 5363456345  # 👈 BU YERGA O'ZINGNI TELEGRAM ID'NGNI YOZ !!!
+ADMIN_ID = 7112223680  # 👈 BU YERGA O'ZINGNI TELEGRAM ID'NGNI YOZ !!!
 
 def register_admin_handlers(dp: Dispatcher, bot: Bot):
 
